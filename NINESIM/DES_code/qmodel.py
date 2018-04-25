@@ -30,8 +30,26 @@ def determineDelay(data, params):
     
     num_qnodes = params["NUM_QNODES"]
     id = data[0]
+    item = data[1]
     state = data[2]
     delay = 10# random.randint(0, 100)
+
+    #
+    # what is the state of the system when the jth vehicle arrives? 
+    j=99
+    if(id==1 and item.id==j):
+        print("Vehicle ",item.id," arrived")
+        print("The arrival queue has",len(item.engine.entities["qnode"][1].in_q),"vehicles (not counting vehicle ",item.id,")")
+        print("Primary, lane 1 queue has",len(item.engine.entities["qnode"][3].in_q),"vehicles")
+        print("Primary, lane 2 queue has",len(item.engine.entities["qnode"][4].in_q),"vehicles")
+        print("Primary, lane 3 queue has",len(item.engine.entities["qnode"][5].in_q),"vehicles")
+        print("Secondary queue has",      len(item.engine.entities["qnode"][7].in_q),"vehicles")
+        print("Primary, lane 1 is processing: ",item.engine.entities["qnode"][3].processing)
+        print("Primary, lane 2 is processing: ",item.engine.entities["qnode"][4].processing)
+        print("Primary, lane 3 is processing: ",item.engine.entities["qnode"][5].processing)
+        print("Secondary is processing: ",item.engine.entities["qnode"][7].processing)
+    #
+    #
 
     if id == 0:
         delay = random.expovariate(1.0 / params["mean_arrival"])
@@ -61,10 +79,14 @@ def determineNextQ(data, params):
     if id==1:                          # if arrival (1), send to transit node (2)
         qnode_id = 2
     if id==2:                          # if transit node (2), send to primary (3,4,5)
-        primary_queue_lengths=(len(data[1].engine.entities["qnode"][3].in_q),
+        primary_queue_lengths=[len(data[1].engine.entities["qnode"][3].in_q),
             len(data[1].engine.entities["qnode"][4].in_q),
-            len(data[1].engine.entities["qnode"][5].in_q))
-        qnode_id = 3+numpy.argmin(primary_queue_lengths) # 3 lanes at primary: pick the first of the shortest queues
+            len(data[1].engine.entities["qnode"][5].in_q)]
+        pqm = params["QMAX"][3:6]
+        for i in range(0,len(primary_queue_lengths)):
+            if(primary_queue_lengths[i]>=pqm[i]):
+                primary_queue_lengths[i]=2*max(pqm)      # if lane is full, 'disqualify'
+        qnode_id = 3+numpy.argmin(primary_queue_lengths) # 3 lanes at primary: pick the first of the non-full shortest queues
     if id in (3,4,5) and sfs==1:       # if primary AND alarm, send to transit node (6)
         qnode_id = 6
     if id in (3,4,5) and sfs==0:       # if primary AND no alarm, send to transit node (8) 
@@ -199,7 +221,7 @@ class qNode(Entity):
     #
     #InsertItem into local q 
     #
-        if len(self.in_q) > self.qmax:
+        if len(self.in_q) >= self.qmax:
             self.waiting_qnodes.insert(0, sender_qnode)
             print self.engine.now, ": ", self,  " refuses ", item
             return False
