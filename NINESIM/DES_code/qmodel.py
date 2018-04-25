@@ -126,6 +126,16 @@ class Item(Entity):
         super(Item, self).__init__(id)
         self.id = self.num
         self.sfs = numpy.random.binomial(1,p,1) # slated for secondary: 0 means no, 1 means yes
+        self.timestats = [0,0,0,0,0,0,0,0,0]
+        # 0: arrival  
+        # 1: leave arrival queue
+        # 2: enter primary queue
+        # 3: leave primary queue/start primary screening
+        # 4: end primary screening
+        # 5: enter secondary queue start (0 indicates no secondary screening)
+        # 6: leave secondary queue/start secibdary screening
+        # 7: leave secondary screening
+        # 8: exit 
         #print self,  " created "
 
         
@@ -162,6 +172,8 @@ class qNode(Entity):
             #print self.engine.now, ": ", self,  " with  [dispatchtime, dest_id, item]", dispatchtime, dest_id, item
             if dest_id == "terminal":
                 # this item is done, we are removing it from the queueing system
+                item.timestats[8] = self.engine.now
+                print item.timestats
                 self.out_q.pop()
                 self.processing = False
                 print self.engine.now, ": ", self,  " terminated ", item
@@ -169,6 +181,18 @@ class qNode(Entity):
                 dest_qnode = self.engine.getEntity("qnode", dest_id)
                 if dest_qnode.insertItem(item, self):
                     self.out_q.pop() # remove from q only if successfully inserted
+                    if dest_id == 1:
+                        item.timestats[0] = self.engine.now # enter arrival queue
+                    if dest_id == 2:
+                        item.timestats[1] = self.engine.now # leave arrival queue/leave arrival
+                    if dest_id in (3,4,5):
+                        item.timestats[2] = self.engine.now # enter primary queue
+                    if dest_id == 6:
+                        item.timestats[4] = self.engine.now # leave primary heading for secondary
+                    if dest_id == 7:
+                        item.timestats[5] = self.engine.now # enter secondary queue
+                    if dest_id == 8:
+                        item.timestats[7] = self.engine.now # leave secondary OR leave primary for secondary
                     print self.engine.now, ": ", self,  " sent ", item, " to qnode ", dest_id
                     self.processing = False
                 else:
@@ -187,6 +211,10 @@ class qNode(Entity):
             item = self.in_q.pop()
             data = [self.id, item, self.state]
             delay = determineDelay(data, self.params)
+            if self.id in (3,4,5):
+                item.timestats[3] = self.engine.now # leave primary queue/start primary screening
+            if self.id == 7:
+                item.timestats[6] = self.engine.now # leave secondary queue/start secondary screening
             print self.engine.now, ": ", self,  " processing vehicle ", item, " with delay ", delay
             # 3. Put into out queue
             self.out_q.append([self.engine.now+delay, item])
