@@ -10,6 +10,8 @@
 #from distributions import runDistribution
 import sys
 from constants import conops
+
+import sys
 from sys import path
 import numpy
 #path.append('SimianPie')
@@ -32,35 +34,16 @@ def determineDelay(data, params):
     id = data[0]
     item = data[1]
     state = data[2]
-    delay = 10# random.randint(0, 100)
-
-    #
-    # what is the state of the system when the jth vehicle arrives? 
-    j=99
-    if(id==1 and item.id==j):
-        print("Vehicle ",item.id," arrived")
-        print("The arrival queue has",len(item.engine.entities["qnode"][1].in_q),"vehicles (not counting vehicle ",item.id,")")
-        print("Primary, lane 1 queue has",len(item.engine.entities["qnode"][3].in_q),"vehicles")
-        print("Primary, lane 2 queue has",len(item.engine.entities["qnode"][4].in_q),"vehicles")
-        print("Primary, lane 3 queue has",len(item.engine.entities["qnode"][5].in_q),"vehicles")
-        print("Secondary queue has",      len(item.engine.entities["qnode"][7].in_q),"vehicles")
-        print("Primary, lane 1 is processing: ",item.engine.entities["qnode"][3].processing)
-        print("Primary, lane 2 is processing: ",item.engine.entities["qnode"][4].processing)
-        print("Primary, lane 3 is processing: ",item.engine.entities["qnode"][5].processing)
-        print("Secondary is processing: ",item.engine.entities["qnode"][7].processing)
-    #
-    #
+    delay = 0
 
     if id == 0:
         delay = random.expovariate(1.0 / params["mean_arrival"])
     if id == 1:
-        delay = 0
-    if id in (2,6,8):
-        delay = params["transit_time"]
-    if id in (3,4,5):
-        delay = random.expovariate(1.0 / params["mean_primary"])
-    if id == 7:
-        delay = random.expovariate(1.0 / params["mean_secondary"])
+        delay = 0 + .01
+    if id in (2,3,4):
+        delay = random.expovariate(1.0 / params["mean_primary"]) + .01
+    if id == 5:
+        delay = random.expovariate(1.0 / params["mean_secondary"]) + .01
     return delay
 
 
@@ -76,25 +59,21 @@ def determineNextQ(data, params):
     qnode_id = "terminal"
     if id==0:                          # if source (0), send to arrival (1)
         qnode_id = 1
-    if id==1:                          # if arrival (1), send to transit node (2)
-        qnode_id = 2
-    if id==2:                          # if transit node (2), send to primary (3,4,5)
-        primary_queue_lengths=[len(data[1].engine.entities["qnode"][3].in_q),
-            len(data[1].engine.entities["qnode"][4].in_q),
-            len(data[1].engine.entities["qnode"][5].in_q)]
-        pqm = params["QMAX"][3:6]
+    if id==1:                          # if arrival (1), send to primary (2,3,4)
+        primary_queue_lengths=[len(data[1].engine.entities["qnode"][2].in_q),
+            len(data[1].engine.entities["qnode"][3].in_q),
+            len(data[1].engine.entities["qnode"][4].in_q)]
+        pqm = params["QMAX"][2:5]
         for i in range(0,len(primary_queue_lengths)):
             if(primary_queue_lengths[i]>=pqm[i]):
                 primary_queue_lengths[i]=2*max(pqm)      # if lane is full, 'disqualify'
-        qnode_id = 3+numpy.argmin(primary_queue_lengths) # 3 lanes at primary: pick the first of the non-full shortest queues
-    if id in (3,4,5) and sfs==1:       # if primary AND alarm, send to transit node (6)
+        qnode_id = 2+numpy.argmin(primary_queue_lengths) # 3 lanes at primary: pick the first of the non-full shortest queues
+    if id in (2,3,4) and sfs==1:       # if primary AND alarm, send to secondary (5)
+        qnode_id = 5
+    if id in (2,3,4) and sfs==0:       # if primary AND no alarm, send to exit (6) 
         qnode_id = 6
-    if id in (3,4,5) and sfs==0:       # if primary AND no alarm, send to transit node (8) 
-        qnode_id = 8
-    if id==6:                          # if transit node (6), send to secondary(7)
-        qnode_id = 7
-    if id==7:                          # if secondary (7), send to transit node (8)
-        qnode_id = 8
+    if id==5:                          # if secondary (5), send to exit (6)
+        qnode_id = 6
     return qnode_id
     
     
@@ -133,8 +112,8 @@ class Item(Entity):
         # 3: leave primary queue/start primary screening
         # 4: end primary screening
         # 5: enter secondary queue start (0 indicates no secondary screening)
-        # 6: leave secondary queue/start secibdary screening
-        # 7: leave secondary screening
+        # 6: leave secondary queue/start secondary screening
+        # 7: leave secondary screening OR leave primary for exit
         # 8: exit 
         #print self,  " created "
 
@@ -172,8 +151,6 @@ class qNode(Entity):
             #print self.engine.now, ": ", self,  " with  [dispatchtime, dest_id, item]", dispatchtime, dest_id, item
             if dest_id == "terminal":
                 # this item is done, we are removing it from the queueing system
-                item.timestats[8] = self.engine.now
-                print item.timestats
                 self.out_q.pop()
                 self.processing = False
                 print self.engine.now, ": ", self,  " terminated ", item
@@ -181,19 +158,10 @@ class qNode(Entity):
                 dest_qnode = self.engine.getEntity("qnode", dest_id)
                 if dest_qnode.insertItem(item, self):
                     self.out_q.pop() # remove from q only if successfully inserted
-                    if dest_id == 1:
-                        item.timestats[0] = self.engine.now # enter arrival queue
-                    if dest_id == 2:
-                        item.timestats[1] = self.engine.now # leave arrival queue/leave arrival
-                    if dest_id in (3,4,5):
-                        item.timestats[2] = self.engine.now # enter primary queue
-                    if dest_id == 6:
-                        item.timestats[4] = self.engine.now # leave primary heading for secondary
-                    if dest_id == 7:
-                        item.timestats[5] = self.engine.now # enter secondary queue
-                    if dest_id == 8:
-                        item.timestats[7] = self.engine.now # leave secondary OR leave primary for secondary
-                    print self.engine.now, ": ", self,  " sent ", item, " to qnode ", dest_id
+                    if self.id in (1,2,3,4,5):
+                        print self.engine.now-.01, ": ", self,  " sent ", item, " to qnode ", dest_id
+                    if self.id == 0:
+                        print self.engine.now, ": ", self,  " sent ", item, " to qnode ", dest_id
                     self.processing = False
                 else:
                     self.processing = True
@@ -211,11 +179,10 @@ class qNode(Entity):
             item = self.in_q.pop()
             data = [self.id, item, self.state]
             delay = determineDelay(data, self.params)
-            if self.id in (3,4,5):
-                item.timestats[3] = self.engine.now # leave primary queue/start primary screening
-            if self.id == 7:
-                item.timestats[6] = self.engine.now # leave secondary queue/start secondary screening
-            print self.engine.now, ": ", self,  " processing vehicle ", item, " with delay ", delay
+            if self.id in (1,2,3,4,5):
+                print self.engine.now, ": ", self,  " processing vehicle ", item, " with delay ", delay-.01
+            if self.id in (0,6):
+                print self.engine.now, ": ", self,  " processing vehicle ", item, " with delay ", delay
             # 3. Put into out queue
             self.out_q.append([self.engine.now+delay, item])
             # 4. Schedule myself in the future
@@ -249,7 +216,7 @@ class qNode(Entity):
     #
     #InsertItem into local q 
     #
-        if len(self.in_q) >= self.qmax:
+        if len(self.in_q) > self.qmax:
             self.waiting_qnodes.insert(0, sender_qnode)
             print self.engine.now, ": ", self,  " refuses ", item
             return False
