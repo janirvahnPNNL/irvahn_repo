@@ -14,9 +14,9 @@ from constants import conops
 
 params = {
 "NUM_RUNS"				: 1,
-"NUM_QNODES"			: 9, 
-"QMAX"					: [1000000,1000000, 1000000, 4, 10, 15, 1000000, 10, 1000000], # maximum number of vehicles on in-queues
-"NUM_VEHICLES" 			: 100,
+"NUM_QNODES"			: 7, 
+"QMAX"					: [1000000, 1000000, 4, 10, 15, 10, 1], # maximum number of vehicles on in-queues
+"NUM_VEHICLES" 			: 1,
 "SOURCE_VEHICLE_IDS"	: [7, 25],
 "p"                     : 0.5,                               # probability of being sent to secondary
 "mean_arrival"          : 0.5,                               # mean time between arrivals
@@ -37,7 +37,7 @@ for sim in range(params["NUM_RUNS"]):
     
     # Create VEHICLE Entities
     for i in range(params["NUM_VEHICLES"]):
-    	simianEngine.addEntity("Vehicle", qmodel.Item, i, params["p"])
+    	simianEngine.addEntity("Vehicle", qmodel.Item, i, params["p"], params["transit_time"])
     	
 	# QNode 0 accepts all vehicles into its in_q
     qnode = simianEngine.getEntity("qnode", 0)

@@ -39,12 +39,14 @@ def determineDelay(data, params):
     if id == 0:
         delay = random.expovariate(1.0 / params["mean_arrival"])
     if id == 1:
-        delay = 0 + .01
+        delay = 0 + params["transit_time"]
     if id in (2,3,4):
-        delay = random.expovariate(1.0 / params["mean_primary"]) + .01
+        delay = random.expovariate(1.0 / params["mean_primary"]) + params["transit_time"]
     if id == 5:
-        delay = random.expovariate(1.0 / params["mean_secondary"]) + .01
+        delay = random.expovariate(1.0 / params["mean_secondary"]) + params["transit_time"]
     return delay
+    # This is still wrong because servers would start serving car 2 after releasing car 1 to transit to the next queue.
+    # As programed here, the server waits until car 1 has entered the next queue before starting to serve car 2.
 
 
 def determineNextQ(data, params):
@@ -101,11 +103,12 @@ class Item(Entity):
 #
 #Items are the objects that are moved through the queues
 #
-    def __init__(self, id, p):
+    def __init__(self, id, p, transit_time):
         super(Item, self).__init__(id)
         self.id = self.num
         self.sfs = numpy.random.binomial(1,p,1) # slated for secondary: 0 means no, 1 means yes
         self.timestats = [0,0,0,0,0,0,0,0,0]
+        self.transit_time = transit_time
         # 0: arrival  
         # 1: leave arrival queue
         # 2: enter primary queue
@@ -159,7 +162,7 @@ class qNode(Entity):
                 if dest_qnode.insertItem(item, self):
                     self.out_q.pop() # remove from q only if successfully inserted
                     if self.id in (1,2,3,4,5):
-                        print self.engine.now-.01, ": ", self,  " sent ", item, " to qnode ", dest_id
+                        print self.engine.now-item.transit_time, ": ", self,  " sent ", item, " to qnode ", dest_id
                     if self.id == 0:
                         print self.engine.now, ": ", self,  " sent ", item, " to qnode ", dest_id
                     self.processing = False
@@ -180,7 +183,7 @@ class qNode(Entity):
             data = [self.id, item, self.state]
             delay = determineDelay(data, self.params)
             if self.id in (1,2,3,4,5):
-                print self.engine.now, ": ", self,  " processing vehicle ", item, " with delay ", delay-.01
+                print self.engine.now, ": ", self,  " processing vehicle ", item, " with delay ", delay-item.transit_time
             if self.id in (0,6):
                 print self.engine.now, ": ", self,  " processing vehicle ", item, " with delay ", delay
             # 3. Put into out queue
