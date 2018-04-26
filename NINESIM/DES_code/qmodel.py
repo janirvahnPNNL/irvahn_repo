@@ -36,6 +36,23 @@ def determineDelay(data, params):
     state = data[2]
     delay = 0
 
+    #
+    # what is the state of the system when the jth vehicle arrives? 
+    j=99
+    if(id==1 and item.id==j):
+        print("Vehicle ",item.id," arrived")
+        print("The arrival queue has",len(item.engine.entities["qnode"][1].in_q),"vehicles (not counting vehicle ",item.id,")")
+        print("Primary, lane 1 queue has",len(item.engine.entities["qnode"][2].in_q),"vehicles")
+        print("Primary, lane 2 queue has",len(item.engine.entities["qnode"][3].in_q),"vehicles")
+        print("Primary, lane 3 queue has",len(item.engine.entities["qnode"][4].in_q),"vehicles")
+        print("Secondary queue has",      len(item.engine.entities["qnode"][5].in_q),"vehicles")
+        print("Primary, lane 1 is processing: ",item.engine.entities["qnode"][2].processing)
+        print("Primary, lane 2 is processing: ",item.engine.entities["qnode"][3].processing)
+        print("Primary, lane 3 is processing: ",item.engine.entities["qnode"][4].processing)
+        print("Secondary is processing: ",item.engine.entities["qnode"][5].processing)
+    #
+    #
+
     if id == 0:
         delay = random.expovariate(1.0 / params["mean_arrival"])
     if id == 1:
@@ -154,6 +171,8 @@ class qNode(Entity):
             #print self.engine.now, ": ", self,  " with  [dispatchtime, dest_id, item]", dispatchtime, dest_id, item
             if dest_id == "terminal":
                 # this item is done, we are removing it from the queueing system
+                item.timestats[8] = self.engine.now
+                print item.timestats
                 self.out_q.pop()
                 self.processing = False
                 print self.engine.now, ": ", self,  " terminated ", item
@@ -161,6 +180,16 @@ class qNode(Entity):
                 dest_qnode = self.engine.getEntity("qnode", dest_id)
                 if dest_qnode.insertItem(item, self):
                     self.out_q.pop() # remove from q only if successfully inserted
+                    if dest_id == 1:
+                        item.timestats[0] = self.engine.now                   # enter arrival queue
+                    if dest_id in (2,3,4):
+                        item.timestats[1] = self.engine.now-item.transit_time # leave arrival queue/leave arrival
+                        item.timestats[2] = self.engine.now                   # enter primary queue
+                    if dest_id == 5:
+                        item.timestats[4] = self.engine.now-item.transit_time # leave primary heading for secondary
+                        item.timestats[5] = self.engine.now                   # enter secondary queue
+                    if dest_id == 6:
+                        item.timestats[7] = self.engine.now-item.transit_time # leave secondary OR leave primary for exit
                     if self.id in (1,2,3,4,5):
                         print self.engine.now-item.transit_time, ": ", self,  " sent ", item, " to qnode ", dest_id
                     if self.id == 0:
@@ -182,6 +211,10 @@ class qNode(Entity):
             item = self.in_q.pop()
             data = [self.id, item, self.state]
             delay = determineDelay(data, self.params)
+            if self.id in (2,3,4):
+                item.timestats[3] = self.engine.now # leave primary queue/start primary screening
+            if self.id == 5:
+                item.timestats[6] = self.engine.now # leave secondary queue/start secondary screening
             if self.id in (1,2,3,4,5):
                 print self.engine.now, ": ", self,  " processing vehicle ", item, " with delay ", delay-item.transit_time
             if self.id in (0,6):
@@ -199,7 +232,7 @@ class qNode(Entity):
                 # If parallel desired, replace with an event call as follows
                 # self.reqService(minDelay, "changeState", states[i], "qNode", i)           
             # 6. Inform waiting queues that there is space now.
-            while (len(self.waiting_qnodes) > 0) and (len(self.in_q) <= self.qmax):
+            while (len(self.waiting_qnodes) > 0) and (len(self.in_q) < self.qmax):
                 qnode = self.waiting_qnodes.pop()
                 print self.engine.now, ": ", self,  " wakes up Qnode ", qnode.num, " to remind it"
                 qnode.processNext()
@@ -219,7 +252,7 @@ class qNode(Entity):
     #
     #InsertItem into local q 
     #
-        if len(self.in_q) > self.qmax:
+        if len(self.in_q) >= self.qmax:
             self.waiting_qnodes.insert(0, sender_qnode)
             print self.engine.now, ": ", self,  " refuses ", item
             return False
