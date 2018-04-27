@@ -106,3 +106,30 @@ hm<-st$leave_secondary_screening_OR_leave_primary_for_exit[st$enter_secondary_qu
 hist(hm,main="Secondary Screening Times",xlab="Minutes",
      breaks=seq(from=0,to=ceiling(max(hm)),by=1))
 ```
+
+```{r total time by arrival time,echo=FALSE,fig.cap='Total time in system as a function of arrival time.'}
+library(ggplot2)
+
+mdf<-data.frame(st)
+secondary<-rep("no",nrow(mdf))
+secondary[mdf$enter_secondary_queue!=0]<-"yes"
+ndf<-cbind(mdf,secondary)
+ggplot(ndf,aes(x=arrival,y=exit-arrival,color=secondary))+
+  geom_point()+
+  theme_bw()+ 
+  theme(panel.border=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line=element_line(colour = "black"))+
+  labs(title="Total Time in System vs. Arrival Time")+
+  ylab("Total Time in System (minutes)")+
+  xlab("Arrival Time (minutes)")+
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r total time in system,echo=FALSE,fig.cap='Histogram of total time in system.'}
+ggplot(ndf,aes(x=exit-arrival,color=secondary,fill=secondary))+
+  geom_histogram(alpha=0.5)+
+  theme_bw()+ 
+  theme(panel.border=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line=element_line(colour = "black"))+
+  labs(title="Total Time in System")+
+  xlab("Total Time in System (minutes)")+
+  theme(plot.title = element_text(hjust = 0.5))
+```
