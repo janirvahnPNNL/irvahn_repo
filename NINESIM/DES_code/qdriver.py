@@ -15,14 +15,14 @@ from constants import conops
 params = {
 "NUM_RUNS"				: 1,
 "NUM_QNODES"			: 7, 
-"QMAX"					: [1000000, 1000000, 4, 10, 15, 10, 1], # maximum number of vehicles on in-queues
-"NUM_VEHICLES" 			: 1,
+"QMAX"                  : [1000000, 1000000, 10, 10, 10, 10, 1], # maximum number of vehicles on in-queues
+"NUM_VEHICLES" 			: 1000,
 "SOURCE_VEHICLE_IDS"	: [7, 25],
-"p"                     : 0.5,                               # probability of being sent to secondary
-"mean_arrival"          : 0.5,                               # mean time between arrivals
-"mean_primary"          : 12,                                # mean time in primary
-"mean_secondary"        : 12,                                # mean time in secondary
-"transit_time"          : .01                                # time to drive to a queue
+"p"                     : 0.1,                              # probability of being sent to secondary
+"mean_arrival"          : 0.75,                              # mean time between arrivals
+"mean_primary"          : 2,                                # mean time in primary
+"mean_secondary"        : 2,                                # mean time in secondary
+"transit_time"          : .1                                # time to drive to a queue
 }
 #############
 

@@ -1,0 +1,108 @@
+---
+title: "NINESIM Discrete Event Simulation Plots"
+author: "Jan Irvahn"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r read in data,echo=FALSE}
+system("python qdriver.py > out.txt")
+system("grep \"\\[\" out.txt > timestamps.csv")
+system("sed -i -e 's/\\[//g' timestamps.csv") 
+system("sed -i -e 's/\\]//g' timestamps.csv")
+
+st<-read.csv("timestamps.csv",header=FALSE)
+names(st)<-c("arrival","leave_arrival","enter_primary_queue",
+             "leave_primary_queue/start_primary_screening",
+             "end_primary_screening_if_secondary_bound","enter_secondary_queue",
+             "leave_secondary_queue/start_secondary_screening",
+             "leave_secondary_screening_OR_leave_primary_for_exit",
+             "exit")
+primary_processing_time<-function(ol) {
+  if(ol[5]==0) return(ol[8]-ol[4])
+  if(ol[5]!=0) return(ol[5]-ol[4])
+}
+ppt<-apply(st,1,primary_processing_time)
+
+line_mql<-system("grep \"QMAX\" qdriver.py",intern=TRUE)
+snas<-unlist(strsplit(unlist(strsplit(line_mql,split="\\["))[2],","))
+pl1qm<-as.numeric(snas[3])
+pl2qm<-as.numeric(snas[4])
+pl3qm<-as.numeric(snas[5])
+sqm<-as.numeric(snas[6])
+
+line_n<-system("grep \"NUM_VEHICLES\" qdriver.py",intern=TRUE)
+n<-as.numeric(unlist(strsplit(unlist(strsplit(line_n,split=":"))[2],","))[1])
+
+line_p<-system("grep \"probability of being sent to\" qdriver.py",intern=TRUE)
+p<-as.numeric(unlist(strsplit(unlist(strsplit(line_p,split=":"))[2],","))[1])
+
+line_mtba<-system("grep \"mean time between arrivals\" qdriver.py",intern=TRUE)
+mean_arrival<-as.numeric(unlist(strsplit(unlist(strsplit(line_mtba,split=":"))[2],","))[1])
+
+line_mtip<-system("grep \"mean time in primary\" qdriver.py",intern=TRUE)
+mean_primary<-as.numeric(unlist(strsplit(unlist(strsplit(line_mtip,split=":"))[2],","))[1])
+
+line_mtis<-system("grep \"mean time in secondary\" qdriver.py",intern=TRUE)
+mean_secondary<-as.numeric(unlist(strsplit(unlist(strsplit(line_mtis,split=":"))[2],","))[1])
+
+line_tt<-system("grep \"time to drive to a queue\" qdriver.py",intern=TRUE)
+transit_time<-as.numeric(unlist(strsplit(unlist(strsplit(line_tt,split=":"))[2],"#"))[1])
+
+options(scipen=1, digits=2)
+```
+
+# Introduction
+
+PNNL has started writing python code for a discrete event simulation of the queueing model shown in Figure \ref{EG} using the SimianPie package that was developed at LANL. 
+
+## Parameter Settings
+
+The queueing model has 3 lanes at primary screening. The time between arrivals was exponentially distributed with a mean of `r mean_arrival` minutes. Primary screening times were exponentially distributed with a mean of `r mean_primary` minutes. Secondary screening times were exponentially distributed with a mean of `r mean_secondary` minutes. Transit times to get to the primary queues, the secondary queue, and the exit were `r transit_time` minutes. Maximum queue length for the three primary queues were `r pl1qm`, `r pl2qm`, and `r pl3qm`. The maximum queue length for secondary was `r sqm`. The probability of a vehicle being sent to secondary was `r p`.  The simulation described here ran `r signif(n,5)` vehicles. 
+
+\begin{figure}[!h]
+\includegraphics{eventgraph.pdf}
+\caption{Event graph for NINESIM queueing work. \label{EG}}
+\end{figure}
+
+\clearpage
+
+# Plots of Simulation Results
+
+```{r arrival queue wait times,echo=FALSE,fig.cap='Time spent in the arrival queue as a function of arrival time after the start of the simulation.',fig.height=3.5}
+plot(st$arrival,
+     st$leave_arrival-st$arrival,main="Arrival Queue Wait Times vs. Arrival Time",
+     ylab="Minutes",
+     xlab="Arrival Time (Minutes)")
+```
+
+```{r hist of arrival queue wait times,echo=FALSE,fig.cap='Histogram of the times spent in the arrival queue.',fig.height=3.5}
+hist(st$leave_arrival-st$arrival,main="Arrival Queue Wait Times",
+     xlab="Minutes",breaks=50)
+```
+
+```{r hist of primary queue wait times,echo=FALSE,fig.cap='Histogram of the times spent in the queue for primary screening.'}
+hist(round(st$`leave_primary_queue/start_primary_screening`-st$enter_primary_queue,10),
+     main="Primary Queue Wait Times",xlab="Minutes",breaks=20)
+```
+
+```{r hist of primary screening times,echo=FALSE,fig.cap='Histogram of the times spent in primary screening. This includes time waiting for space in the secondary queue.'}
+hist(ppt,main="Primary Screening Times",xlab="Minutes",breaks=20)
+```
+
+```{r hist of secondary queue wait times,echo=FALSE,fig.cap='Histogram of the times spent in the queue for secondary screening.'}
+hist(st$`leave_secondary_queue/start_secondary_screening`[st$enter_secondary_queue!=0]-
+       st$enter_secondary_queue[st$enter_secondary_queue!=0],
+     main="Secondary Queue Wait Times",xlab="Minutes",breaks=20)
+```
+
+```{r hist of secondary screening times,echo=FALSE,fig.cap='Histogram of the times spent in secondary screening.'}
+hm<-st$leave_secondary_screening_OR_leave_primary_for_exit[st$enter_secondary_queue!=0]-
+  st$`leave_secondary_queue/start_secondary_screening`[st$enter_secondary_queue!=0]
+hist(hm,main="Secondary Screening Times",xlab="Minutes",
+     breaks=seq(from=0,to=ceiling(max(hm)),by=1))
+```
