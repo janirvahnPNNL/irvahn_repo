@@ -10,6 +10,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r read in data,echo=FALSE}
+library(ggplot2)
+
 system("python qdriver.py > out.txt")
 system("grep \"\\[\" out.txt > timestamps.csv")
 system("sed -i -e 's/\\[//g' timestamps.csv") 
@@ -22,11 +24,17 @@ names(st)<-c("arrival","leave_arrival","enter_primary_queue",
              "leave_secondary_queue/start_secondary_screening",
              "leave_secondary_screening_OR_leave_primary_for_exit",
              "exit")
+
 primary_processing_time<-function(ol) {
   if(ol[5]==0) return(ol[8]-ol[4])
   if(ol[5]!=0) return(ol[5]-ol[4])
 }
 ppt<-apply(st,1,primary_processing_time)
+
+mdf<-data.frame(st)
+secondary<-rep("no",nrow(mdf))
+secondary[mdf$enter_secondary_queue!=0]<-"yes"
+ndf<-cbind(mdf,secondary,ppt)
 
 line_mql<-system("grep \"QMAX\" qdriver.py",intern=TRUE)
 snas<-unlist(strsplit(unlist(strsplit(line_mql,split="\\["))[2],","))
@@ -73,25 +81,45 @@ The queueing model has 3 lanes at primary screening. The time between arrivals w
 
 # Plots of Simulation Results
 
-```{r arrival queue wait times,echo=FALSE,fig.cap='Time spent in the arrival queue as a function of arrival time after the start of the simulation.',fig.height=3.5}
-plot(st$arrival,
-     st$leave_arrival-st$arrival,main="Arrival Queue Wait Times vs. Arrival Time",
-     ylab="Minutes",
-     xlab="Arrival Time (Minutes)")
+```{r arrival queue wait times,echo=FALSE,fig.cap='Time spent in the arrival queue as a function of arrival time after the start of the simulation.'}
+ggplot(ndf,aes(x=arrival,y=leave_arrival-arrival))+
+  geom_point()+
+  theme_bw()+ 
+  theme(panel.border=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line=element_line(colour = "black"))+
+  labs(title="Arrival Queue Wait Times vs. Arrival Time")+
+  ylab("Arrival Queue Wait Times (minutes)")+
+  xlab("Arrival Time (minutes)")+
+  theme(plot.title = element_text(hjust = 0.5))
 ```
 
-```{r hist of arrival queue wait times,echo=FALSE,fig.cap='Histogram of the times spent in the arrival queue.',fig.height=3.5}
-hist(st$leave_arrival-st$arrival,main="Arrival Queue Wait Times",
-     xlab="Minutes",breaks=50)
+```{r hist of arrival queue wait times,echo=FALSE,fig.cap='Histogram of the times spent in the arrival queue.'}
+ggplot(ndf,aes(x=leave_arrival-arrival))+
+  geom_histogram(color="black",bins=30)+
+  theme_bw()+ 
+  theme(panel.border=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line=element_line(colour = "black"))+
+  labs(title="Arrival Queue Wait Times")+
+  xlab("Minutes")+
+  theme(plot.title = element_text(hjust = 0.5))
 ```
 
 ```{r hist of primary queue wait times,echo=FALSE,fig.cap='Histogram of the times spent in the queue for primary screening.'}
-hist(round(st$`leave_primary_queue/start_primary_screening`-st$enter_primary_queue,10),
-     main="Primary Queue Wait Times",xlab="Minutes",breaks=20)
+ggplot(ndf,aes(x=leave_primary_queue.start_primary_screening-enter_primary_queue))+
+  geom_histogram(color="black",bins=30)+
+  theme_bw()+ 
+  theme(panel.border=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line=element_line(colour = "black"))+
+  labs(title="Primary Queue Wait Times")+
+  xlab("Minutes")+
+  theme(plot.title = element_text(hjust = 0.5))
 ```
 
 ```{r hist of primary screening times,echo=FALSE,fig.cap='Histogram of the times spent in primary screening. This includes time waiting for space in the secondary queue.'}
-hist(ppt,main="Primary Screening Times",xlab="Minutes",breaks=20)
+ggplot(ndf,aes(x=ppt))+
+  geom_histogram(color="black",bins=30)+
+  theme_bw()+ 
+  theme(panel.border=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line=element_line(colour = "black"))+
+  labs(title="Primary Screening Times")+
+  xlab("Minutes")+
+  theme(plot.title = element_text(hjust = 0.5))
 ```
 
 ```{r hist of secondary queue wait times,echo=FALSE,fig.cap='Histogram of the times spent in the queue for secondary screening.'}
@@ -108,12 +136,6 @@ hist(hm,main="Secondary Screening Times",xlab="Minutes",
 ```
 
 ```{r total time by arrival time,echo=FALSE,fig.cap='Total time in system as a function of arrival time.'}
-library(ggplot2)
-
-mdf<-data.frame(st)
-secondary<-rep("no",nrow(mdf))
-secondary[mdf$enter_secondary_queue!=0]<-"yes"
-ndf<-cbind(mdf,secondary)
 ggplot(ndf,aes(x=arrival,y=exit-arrival,color=secondary))+
   geom_point()+
   theme_bw()+ 
@@ -126,7 +148,7 @@ ggplot(ndf,aes(x=arrival,y=exit-arrival,color=secondary))+
 
 ```{r total time in system,echo=FALSE,fig.cap='Histogram of total time in system.'}
 ggplot(ndf,aes(x=exit-arrival,color=secondary,fill=secondary))+
-  geom_histogram(alpha=0.5)+
+  geom_histogram(alpha=0.5,bins=30)+
   theme_bw()+ 
   theme(panel.border=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line=element_line(colour = "black"))+
   labs(title="Total Time in System")+
