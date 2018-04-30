@@ -139,7 +139,7 @@ ggplot(tdf,aes(x=leave_secondary_screening_OR_leave_primary_for_exit-
   geom_histogram(color="black",bins=30)+
   theme_bw()+ 
   theme(panel.border=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line=element_line(colour = "black"))+
-  labs(title="Secondary Queue Wait Times")+
+  labs(title="Secondary Screening Times")+
   xlab("Minutes")+
   theme(plot.title = element_text(hjust = 0.5))
 ```
