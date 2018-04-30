@@ -123,16 +123,25 @@ ggplot(ndf,aes(x=ppt))+
 ```
 
 ```{r hist of secondary queue wait times,echo=FALSE,fig.cap='Histogram of the times spent in the queue for secondary screening.'}
-hist(st$`leave_secondary_queue/start_secondary_screening`[st$enter_secondary_queue!=0]-
-       st$enter_secondary_queue[st$enter_secondary_queue!=0],
-     main="Secondary Queue Wait Times",xlab="Minutes",breaks=20)
+tdf<-ndf[ndf$enter_secondary_queue!=0,]
+ggplot(tdf,aes(x=leave_secondary_queue.start_secondary_screening-enter_secondary_queue))+
+  geom_histogram(color="black",bins=30)+
+  theme_bw()+ 
+  theme(panel.border=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line=element_line(colour = "black"))+
+  labs(title="Secondary Queue Wait Times")+
+  xlab("Minutes")+
+  theme(plot.title = element_text(hjust = 0.5))
 ```
 
 ```{r hist of secondary screening times,echo=FALSE,fig.cap='Histogram of the times spent in secondary screening.'}
-hm<-st$leave_secondary_screening_OR_leave_primary_for_exit[st$enter_secondary_queue!=0]-
-  st$`leave_secondary_queue/start_secondary_screening`[st$enter_secondary_queue!=0]
-hist(hm,main="Secondary Screening Times",xlab="Minutes",
-     breaks=seq(from=0,to=ceiling(max(hm)),by=1))
+ggplot(tdf,aes(x=leave_secondary_screening_OR_leave_primary_for_exit-
+                 leave_secondary_queue.start_secondary_screening))+
+  geom_histogram(color="black",bins=30)+
+  theme_bw()+ 
+  theme(panel.border=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line=element_line(colour = "black"))+
+  labs(title="Secondary Queue Wait Times")+
+  xlab("Minutes")+
+  theme(plot.title = element_text(hjust = 0.5))
 ```
 
 ```{r total time by arrival time,echo=FALSE,fig.cap='Total time in system as a function of arrival time.'}
