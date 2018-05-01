@@ -164,3 +164,127 @@ ggplot(ndf,aes(x=exit-arrival,color=secondary,fill=secondary))+
   xlab("Total Time in System (minutes)")+
   theme(plot.title = element_text(hjust = 0.5))
 ```
+
+```{r queue states set up,echo=FALSE}
+options(stringsAsFactors = FALSE)
+system("grep \"queue length\" out.txt > queuelengths.csv")
+ql<-read.csv("queuelengths.csv",header=FALSE)
+extract_queue_lengths<-function(x){
+ is<-unlist(strsplit(x,split=":"))
+ time<-as.numeric(is[1])
+ queue_length<-as.numeric(is[3])
+ ald<-is[2]
+ queue_label<-as.numeric(unlist(strsplit(unlist(strsplit(ald,split="\\("))[2],"\\)"))[1])
+ rdf<-data.frame(time=time,queue_label=queue_label,queue_length=queue_length)
+ return(rdf)
+}
+library(plyr)
+hat<-rbind.fill(apply(ql,1,extract_queue_lengths))
+# arrival queue length versus time
+qol<-hat[hat$queue_label==1,]
+qol<-qol[order(qol$time),]
+p0<-ggplot(qol,aes(x=time,y=queue_length))+
+  geom_step()+
+  theme_bw()+ 
+  theme(panel.border=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line=element_line(colour = "black"))+
+  labs(title="Arrival Queue Length vs. Arrival Time")+
+  ylab("Arrival Queue Length")+
+  xlab("Time (minutes after simulation start)")+
+  theme(plot.title = element_text(hjust = 0.5))
+# lane 1 queue length versus time
+qtwol<-hat[hat$queue_label==2,]
+qtwol<-qtwol[order(qtwol$time),]
+p1<-ggplot(qtwol,aes(x=time,y=queue_length))+
+  geom_step()+
+  theme_bw()+ 
+  theme(panel.border=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line=element_line(colour = "black"))+
+  labs(title="Primary Lane 1 Queue Length")+
+  ylab("Primary Lane 1 Queue Length")+
+  xlab("Time (minutes after simulation start)")+
+  theme(plot.title = element_text(hjust = 0.5))
+# lane 2 queue length versus time
+qthreel<-hat[hat$queue_label==3,]
+qthreel<-qthreel[order(qthreel$time),]
+p2<-ggplot(qthreel,aes(x=time,y=queue_length))+
+  geom_step()+
+  theme_bw()+ 
+  theme(panel.border=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line=element_line(colour = "black"))+
+  labs(title="Primary Lane 2 Queue Length")+
+  ylab("Primary Lane 2 Queue Length")+
+  xlab("Time (minutes after simulation start)")+
+  theme(plot.title = element_text(hjust = 0.5))
+# lane 3 queue length versus time
+qfourl<-hat[hat$queue_label==4,]
+qfourl<-qfourl[order(qfourl$time),]
+p3<-ggplot(qfourl,aes(x=time,y=queue_length))+
+  geom_step()+
+  theme_bw()+ 
+  theme(panel.border=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line=element_line(colour = "black"))+
+  labs(title="Primary Lane 3 Queue Length")+
+  ylab("Primary Lane 3 Queue Length")+
+  xlab("Time (minutes after simulation start)")+
+  theme(plot.title = element_text(hjust = 0.5))
+# secondary queue length versus time
+qsl<-hat[hat$queue_label==5,]
+qsl<-qsl[order(qsl$time),]
+p4<-ggplot(qsl,aes(x=time,y=queue_length))+
+  geom_step()+
+  theme_bw()+ 
+  theme(panel.border=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line=element_line(colour = "black"))+
+  labs(title="Secondary Queue Length")+
+  ylab("Secondary Queue Length")+
+  xlab("Time (minutes after simulation start)")+
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r arrival queue lengths by time,echo=FALSE,fig.cap='yeesher'}
+p0
+```
+
+```{r queue lengths by time,echo=FALSE,fig.cap='yeesh'}
+library(grid)
+library(gridExtra)
+grid.arrange(p1,p2,p3,p4,ncol=2)
+```
+
+```{r queue length summary,echo=FALSE,fig.cap='yoyoyo'}
+# percent of time a queue has length x
+ptqx<-function(qol,x) {
+  qol2<-rbind(c(0,NA,0),qol,c(max(qol$time),NA,NA))
+  rm<-sum(qol2$time[which(qol2$queue_length==x)+1]-
+           qol2$time[which(qol2$queue_length==x)])/max(qol2$time)
+  return(rm)
+}
+# percent of time spent in each queue length state
+ptqz<-function(qol) {
+  sqs<-rep(NA,max(qol$queue_length)+1)
+  for(i in 0:max(qol$queue_length)) sqs[i+1]<-ptqx(qol,i)
+  return(sqs)
+}
+# dataframe for plotting
+dffp<-function(hat) {
+  ql<-NA
+  ts<-NA
+  qa<-NA
+  qn<-c("Arrival","Lane 1","Lane 2","Lane 3","Secondary")
+  for(i in 1:5) {
+   qol<-hat[hat$queue_label==i,]
+   qol<-qol[order(qol$time),]
+   tis<-ptqz(qol)
+   ts<-c(ts,tis)
+   ql<-c(ql,c(0:(length(tis)-1)))
+   qa<-c(qa,rep(qn[i],length(tis)))
+  }
+ return(data.frame(queue_length=factor(ql),time_in_state=ts,queue_label=qa)[-1,])
+}
+ppp<-dffp(hat)
+ggplot(ppp)+
+  aes(x=queue_label,y=time_in_state,fill=queue_length)+
+  geom_col()+
+  theme_bw()+ 
+  theme(panel.border=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line=element_line(colour = "black"))+
+  labs(title="Queue Lengths")+
+  ylab("Fraction of Time")+
+  xlab("Queue")+
+  theme(plot.title = element_text(hjust = 0.5))
+```
