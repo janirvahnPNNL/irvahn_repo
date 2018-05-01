@@ -237,17 +237,17 @@ p4<-ggplot(qsl,aes(x=time,y=queue_length))+
   theme(plot.title = element_text(hjust = 0.5))
 ```
 
-```{r arrival queue lengths by time,echo=FALSE,fig.cap='yeesher'}
+```{r arrival queue lengths by time,echo=FALSE,fig.cap='Length of the arrival queue as a function of the number of minutes after the start of the simulation. When a vehicle passes through, the arrival queue length momentarily jumps from 0 to 1 and back down to 0.'}
 p0
 ```
 
-```{r queue lengths by time,echo=FALSE,fig.cap='yeesh'}
+```{r queue lengths by time,echo=FALSE,fig.cap='Primary and Secondary queue lengths as a function of the number of minutes fter the start of a simulation.'}
 library(grid)
 library(gridExtra)
 grid.arrange(p1,p2,p3,p4,ncol=2)
 ```
 
-```{r queue length summary,echo=FALSE,fig.cap='yoyoyo'}
+```{r queue length summary,echo=FALSE,fig.cap='Fraction of time each queue spent with a specified queue length.'}
 # percent of time a queue has length x
 ptqx<-function(qol,x) {
   qol2<-rbind(c(0,NA,0),qol,c(max(qol$time),NA,NA))
